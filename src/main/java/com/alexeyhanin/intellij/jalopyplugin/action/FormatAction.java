@@ -18,39 +18,42 @@
 package com.alexeyhanin.intellij.jalopyplugin.action;
 
 import com.alexeyhanin.intellij.jalopyplugin.util.JalopyDocumentFormatter;
-import static com.alexeyhanin.intellij.jalopyplugin.util.RuntimeHelper.newWriteAction;
-
+import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
-import com.intellij.openapi.actionSystem.PlatformDataKeys;
+import com.intellij.openapi.actionSystem.CommonDataKeys;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.command.CommandProcessor;
 import com.intellij.openapi.editor.Editor;
+import org.jetbrains.annotations.NotNull;
+
 public class FormatAction extends AnAction {
 
+    @Override
+    public void actionPerformed(@NotNull final AnActionEvent event) {
+        final Editor editor = event.getData(CommonDataKeys.EDITOR);
+        if (editor == null) {
+            return;
+        }
 
-    public void actionPerformed(final AnActionEvent event) {
-
-        final Editor editor = event.getData(PlatformDataKeys.EDITOR);
-
-        final Runnable updateAction = newWriteAction(new EditorDocumentUpdateAction(editor));
-        CommandProcessor.getInstance()
-        .executeCommand(event.getProject(), updateAction, "jalopy.format", null);
+        CommandProcessor.getInstance().executeCommand(
+                event.getProject(),
+                () -> ApplicationManager.getApplication().runWriteAction((Runnable) () ->
+                        JalopyDocumentFormatter.format(editor.getDocument())
+                ),
+                "Format with Jalopy",
+                null
+        );
     }
 
-    private static class EditorDocumentUpdateAction implements Runnable {
+    @Override
+    public void update(@NotNull AnActionEvent e) {
+        final Editor editor = e.getData(CommonDataKeys.EDITOR);
+        e.getPresentation().setEnabledAndVisible(editor != null);
+    }
 
-        private final Editor editor;
-
-        public EditorDocumentUpdateAction(final Editor editor) {
-            this.editor = editor;
-        }
-
-        @Override
-        public void run() {
-
-            if (editor != null) {
-                JalopyDocumentFormatter.format(editor.getDocument());
-            }
-        }
+    @Override
+    public @NotNull ActionUpdateThread getActionUpdateThread() {
+        return ActionUpdateThread.BGT;
     }
 }

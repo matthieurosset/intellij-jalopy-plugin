@@ -18,35 +18,105 @@
 
 package com.alexeyhanin.intellij.jalopyplugin.util;
 
+import com.alexeyhanin.intellij.jalopyplugin.service.JalopySettingsService;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
+import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.VirtualFile;
-import de.hunsicker.jalopy.Jalopy;
+import com.triemax.Jalopy;
 
-import java.io.StringReader;
-import java.io.StringWriter;
+import java.io.File;
 
 public class JalopyDocumentFormatter {
+
+    private static final Logger LOG = Logger.getInstance(JalopyDocumentFormatter.class);
+    private static Jalopy jalopyInstance = null;
+    private static String lastLoadedConventionPath = null;
 
     public static boolean format(final Document document) {
         final VirtualFile virtualFile = FileDocumentManager.getInstance().getFile(document);
 
-        if (virtualFile != null) {
+        if (virtualFile == null) {
+            LOG.warn("Cannot format: virtualFile is null");
+            return false;
+        }
+
+        // Only format Java files
+        if (!"java".equalsIgnoreCase(virtualFile.getExtension())) {
+            return false;
+        }
+
+        try {
+            // Get or create Jalopy instance with convention loaded
+            final Jalopy jalopy = getJalopyInstance();
+            if (jalopy == null) {
+                LOG.warn("Failed to create Jalopy instance");
+                return false;
+            }
 
             final String text = document.getText();
-            final StringWriter writer = new StringWriter(text.length());
 
-            final Jalopy jalopy = new Jalopy();
-            jalopy.setInput(new StringReader(text), virtualFile.getPath());
-            jalopy.setOutput(writer);
+            // Jalopy 1.10 API: format(CharSequence, String filename) returns formatted string
+            final String formattedText = jalopy.format(text, virtualFile.getPath());
 
-            if (jalopy.format()) {
-                final String formattedText = writer.getBuffer().toString();
+            if (formattedText != null && !text.equals(formattedText)) {
                 document.setText(formattedText);
                 return true;
             }
+
+            return formattedText != null;
+        } catch (Exception e) {
+            LOG.warn("Failed to format document: " + virtualFile.getPath(), e);
         }
 
         return false;
+    }
+
+    private static synchronized Jalopy getJalopyInstance() {
+        final JalopySettingsService settings = JalopySettingsService.getInstance();
+        final String conventionPath = settings.getConventionFilePath();
+
+        // Check if we need to reload the Jalopy instance with a new convention
+        if (jalopyInstance != null && StringUtil.equals(conventionPath, lastLoadedConventionPath)) {
+            return jalopyInstance;
+        }
+
+        // Create new Jalopy instance
+        try {
+            jalopyInstance = new Jalopy();
+
+            // Load convention file if configured
+            if (StringUtil.isNotEmpty(conventionPath)) {
+                final File conventionFile = new File(conventionPath);
+                if (conventionFile.exists() && conventionFile.isFile()) {
+                    try {
+                        // Jalopy 1.10 API: setConvention(File)
+                        jalopyInstance.setConvention(conventionFile);
+                        lastLoadedConventionPath = conventionPath;
+                    } catch (Exception e) {
+                        LOG.warn("Failed to load Jalopy convention file: " + conventionPath, e);
+                        lastLoadedConventionPath = null;
+                    }
+                } else {
+                    LOG.warn("Convention file does not exist: " + conventionPath);
+                    lastLoadedConventionPath = null;
+                }
+            } else {
+                lastLoadedConventionPath = null;
+            }
+
+            return jalopyInstance;
+        } catch (Exception e) {
+            LOG.warn("Failed to create Jalopy instance", e);
+            jalopyInstance = null;
+            lastLoadedConventionPath = null;
+            return null;
+        }
+    }
+
+    public static void reloadConvention() {
+        jalopyInstance = null;
+        lastLoadedConventionPath = null;
     }
 }

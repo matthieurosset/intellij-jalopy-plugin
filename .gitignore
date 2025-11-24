@@ -1,6 +1,27 @@
+# Java
 *.class
 
-# Package Files #
-*.jar
+# Package Files
 *.war
 *.ear
+
+# Gradle
+.gradle
+build/
+.intellijPlatform
+!gradle/wrapper/gradle-wrapper.jar
+!libs/*.jar
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# Plugin build
+/build
+/.gradle
+
+# Local configuration
+local.properties

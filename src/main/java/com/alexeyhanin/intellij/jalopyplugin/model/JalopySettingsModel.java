@@ -17,15 +17,34 @@
  */
 package com.alexeyhanin.intellij.jalopyplugin.model;
 
+import com.intellij.util.xmlb.annotations.Tag;
+
+@Tag("JalopySettings")
 public class JalopySettingsModel {
 
-    private boolean isFormatOnSaveEnabled;
+    private boolean formatOnSaveEnabled;
+    private String conventionFilePath;
 
     public boolean isFormatOnSaveEnabled() {
-        return isFormatOnSaveEnabled;
+        return formatOnSaveEnabled;
     }
 
     public void setFormatOnSaveEnabled(final boolean formatOnSaveEnabled) {
-        isFormatOnSaveEnabled = formatOnSaveEnabled;
+        this.formatOnSaveEnabled = formatOnSaveEnabled;
+    }
+
+    public String getConventionFilePath() {
+        return conventionFilePath;
+    }
+
+    public void setConventionFilePath(final String conventionFilePath) {
+        this.conventionFilePath = conventionFilePath;
+    }
+
+    public JalopySettingsModel copy() {
+        final JalopySettingsModel copy = new JalopySettingsModel();
+        copy.formatOnSaveEnabled = this.formatOnSaveEnabled;
+        copy.conventionFilePath = this.conventionFilePath;
+        return copy;
     }
 }
